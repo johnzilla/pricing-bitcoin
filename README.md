@@ -175,7 +175,7 @@ Keep it lean—no extra dependencies. Use `int` for sats precision. Tests with p
 
 ## License
 
-MIT License - see LICENSE file for details.
+Apache 2.0 - see LICENSE file for details.
 
 ## Disclaimer
 

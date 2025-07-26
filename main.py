@@ -62,7 +62,30 @@ async def get_btc_price() -> float:
 @app.get("/")
 async def serve_index():
     """Serve the main HTML page"""
-    return FileResponse("static/index.html")
+    import os
+    # Use index.html in root for Vercel compatibility
+    if os.path.exists("index.html"):
+        return FileResponse("index.html")
+    else:
+        return FileResponse("static/index.html")
+
+@app.get("/style.css")
+async def serve_css():
+    """Serve CSS file"""
+    import os
+    if os.path.exists("style.css"):
+        return FileResponse("style.css")
+    else:
+        return FileResponse("static/style.css")
+
+@app.get("/script.js")
+async def serve_js():
+    """Serve JavaScript file"""
+    import os
+    if os.path.exists("script.js"):
+        return FileResponse("script.js")
+    else:
+        return FileResponse("static/script.js")
 
 @app.get("/debug")
 async def serve_debug():

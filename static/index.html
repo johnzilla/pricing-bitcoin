@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTC Real-World Converter</title>
+    <link rel="stylesheet" href="static/style.css">
+    <script src="https://cdn.canvasjs.com/canvasjs.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 BTC Real-World Converter</h1>
+            <p>See how much Bitcoin buys in the real world</p>
+        </header>
+
+        <main class="converter-container">
+            <!-- Left Side - Input -->
+            <div class="input-side">
+                <div class="input-group">
+                    <label for="btc-input">Bitcoin Amount</label>
+                    <div class="input-wrapper">
+                        <input type="number" id="btc-input" placeholder="0.1" step="any" min="0">
+                        <div class="unit-toggle">
+                            <button id="btc-toggle" class="unit-btn active" data-unit="btc">BTC</button>
+                            <button id="sats-toggle" class="unit-btn" data-unit="sats">sats</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Direction Toggle -->
+            <div class="direction-toggle">
+                <button id="swap-direction" class="swap-btn" title="Swap conversion direction">
+                    ⇄
+                </button>
+            </div>
+
+            <!-- Right Side - Output -->
+            <div class="output-side">
+                <div class="input-group">
+                    <label for="item-select">Item</label>
+                    <select id="item-select">
+                        <option value="">Select an item...</option>
+                    </select>
+                </div>
+
+                <div class="result-container">
+                    <div id="result-display" class="result-display">
+                        <div class="quantity-result">
+                            <span id="quantity-value">--</span>
+                            <span id="quantity-unit"></span>
+                        </div>
+                        <div class="price-breakdown">
+                            <div class="price-row">
+                                <span>Item Price:</span>
+                                <span id="item-price">$--</span>
+                            </div>
+                            <div class="price-row">
+                                <span>Total Value:</span>
+                                <span id="total-value">$--</span>
+                            </div>
+                            <div class="price-row">
+                                <span>BTC Price:</span>
+                                <span id="btc-price">$--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Historical Data Section -->
+        <section class="historical-section" id="historical-section" style="display: none;">
+            <div class="historical-header">
+                <h3>📈 Historical Price Chart</h3>
+                <div class="date-controls">
+                    <label for="from-date">From:</label>
+                    <input type="date" id="from-date">
+                    <label for="to-date">To:</label>
+                    <input type="date" id="to-date">
+                    <button id="load-historical" class="btn-secondary">Load Chart</button>
+                </div>
+            </div>
+            <div id="chartContainer" class="chart-container"></div>
+        </section>
+
+        <!-- Controls -->
+        <div class="controls">
+            <button id="refresh-btn" class="btn-primary">🔄 Refresh Prices</button>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div id="loading-spinner" class="spinner-overlay" style="display: none;">
+            <div class="spinner"></div>
+        </div>
+
+        <!-- Toast Messages -->
+        <div id="toast-container" class="toast-container"></div>
+    </div>
+
+    <footer>
+        <p>Prices are approximate and for educational purposes. Data from various APIs.</p>
+    </footer>
+
+    <script src="static/script.js"></script>
+</body>
+</html> 

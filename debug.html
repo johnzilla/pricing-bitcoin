@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug BTC Converter</title>
+</head>
+<body>
+    <h1>Debug BTC Converter</h1>
+    <select id="item-select">
+        <option value="">Select an item...</option>
+    </select>
+    
+    <div id="console-output"></div>
+    
+    <script>
+        const consoleOutput = document.getElementById('console-output');
+        const originalLog = console.log;
+        const originalError = console.error;
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            consoleOutput.innerHTML += '<div style="color: blue;">LOG: ' + args.join(' ') + '</div>';
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            consoleOutput.innerHTML += '<div style="color: red;">ERROR: ' + args.join(' ') + '</div>';
+        };
+        
+        async function testLoadItems() {
+            console.log('Starting testLoadItems...');
+            try {
+                const response = await fetch('/api/items');
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch items');
+                }
+                const categories = await response.json();
+                console.log('Categories received:', Object.keys(categories));
+                
+                const select = document.getElementById('item-select');
+                if (!select) {
+                    console.error('Could not find item-select element');
+                    return;
+                }
+                select.innerHTML = '<option value="">Select an item...</option>';
+                
+                Object.entries(categories).forEach(([category, items]) => {
+                    console.log('Processing category:', category, 'with', items.length, 'items');
+                    const optgroup = document.createElement('optgroup');
+                    optgroup.label = category;
+                    
+                    items.forEach(item => {
+                        const option = document.createElement('option');
+                        option.value = item.key;
+                        option.textContent = item.name;
+                        option.dataset.historicalSupport = item.historical_support;
+                        option.dataset.unit = item.unit;
+                        optgroup.appendChild(option);
+                    });
+                    
+                    select.appendChild(optgroup);
+                });
+                
+                console.log('Items loaded successfully, select now has', select.children.length, 'children');
+                
+            } catch (error) {
+                console.error('Error loading items:', error);
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, testing...');
+            testLoadItems();
+        });
+    </script>
+</body>
+</html> 

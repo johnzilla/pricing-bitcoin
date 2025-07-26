@@ -26,8 +26,8 @@ Web app to convert BTC/sats to equivalent goods/services quantities using real-t
 2. **Set up environment variables:**
    Create a `.env` file with your API keys:
    ```env
-   # Required for commodities data
-   COMMODITIES_API_KEY=your_commodities_api_key_here
+   # Required for commodities data (Oil, Gold, Silver, Natural Gas)
+   ALPHA_VANTAGE_API_KEY=your_alpha_vantage_api_key_here
    
    # Required for historical CPI data
    FRED_API_KEY=your_fred_api_key_here
@@ -37,7 +37,7 @@ Web app to convert BTC/sats to equivalent goods/services quantities using real-t
    ```
 
 3. **Get API Keys:**
-   - **Commodities API**: [Get free key](https://commodities-api.com) (1000 requests/month free)
+   - **Alpha Vantage API**: [Get free key](https://www.alphavantage.co/support/#api-key) (5 calls/minute, 500 calls/day free)
    - **FRED API**: [Get free key](https://api.stlouisfed.org/) (unlimited requests)
    - **BLS API**: [Get free key](https://www.bls.gov/developers/) (optional, has fallbacks)
 
@@ -114,12 +114,13 @@ Get historical price data for CPI items.
 ## Available Items
 
 ### Energy
-- Oil (barrel) - Commodities API
+- Oil (barrel) - Alpha Vantage API (WTI crude oil)
+- Natural Gas (MMBtu) - Alpha Vantage API
 - Gasoline (gallon) - BLS API + historical support
 
 ### Commodities  
-- Gold (ounce) - Commodities API
-- Silver (ounce) - Commodities API
+- Gold (ounce) - Alpha Vantage API (USD/XAU currency exchange)
+- Silver (ounce) - Alpha Vantage API (USD/XAG currency exchange)
 
 ### Food
 - Bread (loaf) - FRED API + historical support
@@ -158,7 +159,7 @@ Get historical price data for CPI items.
 
 ### Data Sources
 - **Bitcoin Price**: CoinGecko API (no key required)
-- **Commodities**: Commodities-API.com
+- **Commodities**: Alpha Vantage API (Oil via WTI, Gold/Silver via currency exchange rates)
 - **Economic Data**: Federal Reserve Economic Data (FRED)
 - **Labor Statistics**: Bureau of Labor Statistics (BLS)
 

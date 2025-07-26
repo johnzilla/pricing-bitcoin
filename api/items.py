@@ -1,63 +1,148 @@
 import httpx
 import os
 from typing import Dict, Any, Callable
+from decimal import Decimal
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 async def fetch_oil_usd() -> float:
-    """Fetch oil price from Commodities API"""
-    api_key = os.getenv("COMMODITIES_API_KEY")
+    """Fetch oil price from Alpha Vantage API (WTI crude oil)"""
+    api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
     if not api_key:
-        # Fallback price if API key not available
+        print("Warning: ALPHA_VANTAGE_API_KEY not found, using fallback price")
         return 75.0
     
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"https://commodities-api.com/api/latest?access_key={api_key}&symbols=BRENTOIL",
-                timeout=10.0
+                f"https://www.alphavantage.co/query?function=WTI&interval=daily&apikey={api_key}",
+                timeout=15.0
             )
             response.raise_for_status()
             data = response.json()
-            # Commodities API returns price per unit
-            return float(data["data"]["BRENTOIL"])
-    except Exception:
+            
+            # Check for API errors
+            if "Error Message" in data:
+                raise Exception(f"Alpha Vantage error: {data['Error Message']}")
+            if "Note" in data:
+                raise Exception(f"Alpha Vantage rate limit: {data['Note']}")
+            
+            # Get latest daily price
+            if "data" in data and len(data["data"]) > 0:
+                latest_price = float(data["data"][0]["value"])
+                return latest_price
+            else:
+                raise Exception("No price data returned")
+                
+    except Exception as e:
+        print(f"Error fetching oil price from Alpha Vantage: {e}")
         # Fallback to approximate current oil price
         return 75.0
 
 async def fetch_gold_usd() -> float:
-    """Fetch gold price from Commodities API (per ounce)"""
-    api_key = os.getenv("COMMODITIES_API_KEY")
+    """Fetch gold price from Alpha Vantage API (per ounce)"""
+    api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
     if not api_key:
+        print("Warning: ALPHA_VANTAGE_API_KEY not found, using fallback price")
         return 2000.0
     
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"https://commodities-api.com/api/latest?access_key={api_key}&symbols=XAU",
-                timeout=10.0
+                f"https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=USD&to_currency=XAU&apikey={api_key}",
+                timeout=15.0
             )
             response.raise_for_status()
             data = response.json()
-            return float(data["data"]["XAU"])
-    except Exception:
+            
+            # Check for API errors
+            if "Error Message" in data:
+                raise Exception(f"Alpha Vantage error: {data['Error Message']}")
+            if "Note" in data:
+                raise Exception(f"Alpha Vantage rate limit: {data['Note']}")
+            
+            # Get exchange rate and invert to get USD per ounce of gold
+            if "Realtime Currency Exchange Rate" in data:
+                exchange_rate = float(data["Realtime Currency Exchange Rate"]["5. Exchange Rate"])
+                # Invert the rate: if 1 USD = 0.0005 XAU, then 1 XAU = 2000 USD
+                gold_price_usd = 1.0 / exchange_rate
+                return gold_price_usd
+            else:
+                raise Exception("No exchange rate data returned")
+                
+    except Exception as e:
+        print(f"Error fetching gold price from Alpha Vantage: {e}")
         return 2000.0
 
 async def fetch_silver_usd() -> float:
-    """Fetch silver price from Commodities API (per ounce)"""
-    api_key = os.getenv("COMMODITIES_API_KEY")
+    """Fetch silver price from Alpha Vantage API (per ounce)"""
+    api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
     if not api_key:
+        print("Warning: ALPHA_VANTAGE_API_KEY not found, using fallback price")
         return 25.0
     
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"https://commodities-api.com/api/latest?access_key={api_key}&symbols=XAG",
-                timeout=10.0
+                f"https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=USD&to_currency=XAG&apikey={api_key}",
+                timeout=15.0
             )
             response.raise_for_status()
             data = response.json()
-            return float(data["data"]["XAG"])
-    except Exception:
+            
+            # Check for API errors
+            if "Error Message" in data:
+                raise Exception(f"Alpha Vantage error: {data['Error Message']}")
+            if "Note" in data:
+                raise Exception(f"Alpha Vantage rate limit: {data['Note']}")
+            
+            # Get exchange rate and invert to get USD per ounce of silver
+            if "Realtime Currency Exchange Rate" in data:
+                exchange_rate = float(data["Realtime Currency Exchange Rate"]["5. Exchange Rate"])
+                # Invert the rate: if 1 USD = 0.04 XAG, then 1 XAG = 25 USD
+                silver_price_usd = 1.0 / exchange_rate
+                return silver_price_usd
+            else:
+                raise Exception("No exchange rate data returned")
+                
+    except Exception as e:
+        print(f"Error fetching silver price from Alpha Vantage: {e}")
         return 25.0
+
+async def fetch_natural_gas_usd() -> float:
+    """Fetch natural gas price from Alpha Vantage API"""
+    api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
+    if not api_key:
+        print("Warning: ALPHA_VANTAGE_API_KEY not found, using fallback price")
+        return 3.50
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"https://www.alphavantage.co/query?function=NATURAL_GAS&interval=daily&apikey={api_key}",
+                timeout=15.0
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            # Check for API errors
+            if "Error Message" in data:
+                raise Exception(f"Alpha Vantage error: {data['Error Message']}")
+            if "Note" in data:
+                raise Exception(f"Alpha Vantage rate limit: {data['Note']}")
+            
+            # Get latest daily price
+            if "data" in data and len(data["data"]) > 0:
+                latest_price = float(data["data"][0]["value"])
+                return latest_price
+            else:
+                raise Exception("No price data returned")
+                
+    except Exception as e:
+        print(f"Error fetching natural gas price from Alpha Vantage: {e}")
+        return 3.50
 
 async def fetch_gasoline_usd() -> float:
     """Fetch gasoline price (using BLS API for US average)"""
@@ -282,6 +367,12 @@ ITEMS: Dict[str, Dict[str, Any]] = {
         "fetcher": fetch_gasoline_usd,
         "historical_support": True,
         "fred_series": "APU000074714"
+    },
+    "natural_gas": {
+        "category": "Energy",
+        "unit": "MMBtu",
+        "fetcher": fetch_natural_gas_usd,
+        "historical_support": False
     },
     "gold": {
         "category": "Commodities",

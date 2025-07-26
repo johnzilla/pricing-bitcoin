@@ -7,6 +7,10 @@ import os
 from typing import Optional, List
 from datetime import datetime, timedelta
 import asyncio
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Import items module
 try:
@@ -16,7 +20,9 @@ except ImportError:
     ITEMS = {
         "bread": {"category": "Food", "unit": "loaf", "fetcher": lambda: 2.50, "historical_support": True},
         "oil": {"category": "Energy", "unit": "barrel", "fetcher": lambda: 75.0, "historical_support": False},
+        "natural_gas": {"category": "Energy", "unit": "MMBtu", "fetcher": lambda: 3.50, "historical_support": False},
         "gold": {"category": "Commodities", "unit": "ounce", "fetcher": lambda: 2000.0, "historical_support": False},
+        "silver": {"category": "Commodities", "unit": "ounce", "fetcher": lambda: 25.0, "historical_support": False},
         "milk": {"category": "Food", "unit": "gallon", "fetcher": lambda: 3.80, "historical_support": True}
     }
     def get_items_by_category():
@@ -26,14 +32,16 @@ except ImportError:
                 {"key": "milk", "name": "Milk (gallon)", "unit": "gallon", "historical_support": True}
             ],
             "Energy": [
-                {"key": "oil", "name": "Oil (barrel)", "unit": "barrel", "historical_support": False}
+                {"key": "oil", "name": "Oil (barrel)", "unit": "barrel", "historical_support": False},
+                {"key": "natural_gas", "name": "Natural Gas (MMBtu)", "unit": "MMBtu", "historical_support": False}
             ],
             "Commodities": [
-                {"key": "gold", "name": "Gold (ounce)", "unit": "ounce", "historical_support": False}
+                {"key": "gold", "name": "Gold (ounce)", "unit": "ounce", "historical_support": False},
+                {"key": "silver", "name": "Silver (ounce)", "unit": "ounce", "historical_support": False}
             ]
         }
     def get_item_fetcher(item): 
-        prices = {"bread": 2.50, "oil": 75.0, "gold": 2000.0, "milk": 3.80}
+        prices = {"bread": 2.50, "oil": 75.0, "natural_gas": 3.50, "gold": 2000.0, "silver": 25.0, "milk": 3.80}
         return lambda: prices.get(item, 10.0)
 
 app = FastAPI()
@@ -115,10 +123,18 @@ async def serve_index():
                 <label>Item:</label>
                                  <select id="item-select">
                      <option value="">Select an item...</option>
-                     <option value="bread">Bread (loaf)</option>
-                     <option value="milk">Milk (gallon)</option>
-                     <option value="oil">Oil (barrel)</option>
-                     <option value="gold">Gold (ounce)</option>
+                     <optgroup label="Food">
+                         <option value="bread">Bread (loaf)</option>
+                         <option value="milk">Milk (gallon)</option>
+                     </optgroup>
+                     <optgroup label="Energy">
+                         <option value="oil">Oil (barrel)</option>
+                         <option value="natural_gas">Natural Gas (MMBtu)</option>
+                     </optgroup>
+                     <optgroup label="Commodities">
+                         <option value="gold">Gold (ounce)</option>
+                         <option value="silver">Silver (ounce)</option>
+                     </optgroup>
                  </select>
             </div>
             <button onclick="convert()">Convert</button>
@@ -134,20 +150,40 @@ async def serve_index():
                     return;
                 }
                 
-                try {
-                    const response = await fetch(`/api/convert?btc_amount=${btcAmount}&item=${item}&direction=btc_to_item`);
-                    const data = await response.json();
-                    
-                    document.getElementById('result').innerHTML = `
-                        <strong>Result:</strong> ${data.quantity.toFixed(2)} ${item}(s)<br>
-                        <strong>Item Price:</strong> $${data.usd_item}<br>
-                        <strong>Total Value:</strong> $${data.usd_total}<br>
-                        <strong>BTC Price:</strong> $${data.btc_price}
-                    `;
-                    document.getElementById('result').style.display = 'block';
-                } catch (error) {
-                    alert('Error: ' + error.message);
-                }
+                                 try {
+                     const response = await fetch(`/api/convert?btc_amount=${btcAmount}&item=${item}&direction=btc_to_item`);
+                     
+                     if (!response.ok) {
+                         throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                     }
+                     
+                     const data = await response.json();
+                     
+                     // Check if the API returned an error
+                     if (data.detail) {
+                         throw new Error(data.detail);
+                     }
+                     
+                     console.log('Conversion successful:', data);
+                     
+                     document.getElementById('result').innerHTML = `
+                         <strong>Result:</strong> ${data.quantity.toLocaleString()} ${item}(s)<br>
+                         <strong>Item Price:</strong> $${data.usd_item.toLocaleString()}<br>
+                         <strong>Total Value:</strong> $${data.usd_total.toLocaleString()}<br>
+                         <strong>BTC Price:</strong> $${data.btc_price.toLocaleString()}
+                     `;
+                     document.getElementById('result').style.display = 'block';
+                 } catch (error) {
+                     console.error('Conversion error:', error);
+                     const errorMsg = error.message.includes('rate limit') ? 
+                         'API rate limit reached. Please try again later.' :
+                         error.message.includes('API Error') ?
+                         'API service temporarily unavailable. Please try again later.' :
+                         'Error: ' + error.message;
+                     
+                     alert(errorMsg);
+                     document.getElementById('result').style.display = 'none';
+                 }
             }
         </script>
         </div>
@@ -186,10 +222,12 @@ async def convert(
         # Try to get item price from fetcher, fallback to hardcoded prices
         try:
             item_fetcher = get_item_fetcher(item)
-            item_price = await item_fetcher() if asyncio.iscoroutinefunction(item_fetcher) else item_fetcher()
-        except:
+            item_price_raw = await item_fetcher() if asyncio.iscoroutinefunction(item_fetcher) else item_fetcher()
+            item_price = float(Decimal(str(item_price_raw)).quantize(Decimal('0.01')))
+        except Exception as e:
+            print(f"Error fetching price for {item}: {e}")
             # Fallback hardcoded prices
-            item_prices = {"bread": 2.50, "oil": 75.0, "gold": 2000.0, "milk": 3.80}
+            item_prices = {"bread": 2.50, "oil": 75.0, "natural_gas": 3.50, "gold": 2000.0, "silver": 25.0, "milk": 3.80}
             item_price = item_prices.get(item, 10.0)
         
         if direction == "btc_to_item":
@@ -205,15 +243,17 @@ async def convert(
             if sats:
                 btc_value = btc_value / Decimal("100000000")  # Convert sats to BTC
             
-            # Calculate quantities
-            usd_total = float(btc_value * Decimal(str(btc_price)))
-            item_quantity = usd_total / item_price
+            # Calculate quantities using Decimal precision
+            btc_price_decimal = Decimal(str(btc_price))
+            item_price_decimal = Decimal(str(item_price))
+            usd_total_decimal = btc_value * btc_price_decimal
+            item_quantity_decimal = usd_total_decimal / item_price_decimal
             
             return ConvertResponse(
-                quantity=round(item_quantity, 6),
-                usd_item=round(item_price, 2),
-                usd_total=round(usd_total, 2),
-                btc_price=round(btc_price, 2)
+                quantity=float(item_quantity_decimal.quantize(Decimal('0.000001'))),
+                usd_item=float(item_price_decimal.quantize(Decimal('0.01'))),
+                usd_total=float(usd_total_decimal.quantize(Decimal('0.01'))),
+                btc_price=float(btc_price_decimal.quantize(Decimal('0.01')))
             )
         
         else:  # item_to_btc
@@ -224,19 +264,25 @@ async def convert(
             if quantity <= 0:
                 raise HTTPException(status_code=400, detail="Quantity must be positive")
             
-            # Calculate BTC needed
-            usd_total = quantity * item_price
-            btc_needed = usd_total / btc_price
+            # Calculate BTC needed using Decimal precision
+            quantity_decimal = Decimal(str(quantity))
+            item_price_decimal = Decimal(str(item_price))
+            btc_price_decimal = Decimal(str(btc_price))
+            usd_total_decimal = quantity_decimal * item_price_decimal
+            btc_needed_decimal = usd_total_decimal / btc_price_decimal
             
             # Convert to sats if requested
             if sats:
-                btc_needed = btc_needed * 100000000  # Convert BTC to sats
+                btc_needed_decimal = btc_needed_decimal * Decimal("100000000")  # Convert BTC to sats
+                final_quantity = int(btc_needed_decimal.quantize(Decimal('1')))  # Integer sats
+            else:
+                final_quantity = float(btc_needed_decimal.quantize(Decimal('0.00000001')))  # 8 decimal places for BTC
             
             return ConvertResponse(
-                quantity=round(btc_needed, 8 if not sats else 0),
-                usd_item=round(item_price, 2),
-                usd_total=round(usd_total, 2),
-                btc_price=round(btc_price, 2)
+                quantity=final_quantity,
+                usd_item=float(item_price_decimal.quantize(Decimal('0.01'))),
+                usd_total=float(usd_total_decimal.quantize(Decimal('0.01'))),
+                btc_price=float(btc_price_decimal.quantize(Decimal('0.01')))
             )
             
     except HTTPException:

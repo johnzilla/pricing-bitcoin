@@ -357,9 +357,17 @@ async def fetch_new_car_usd() -> float:
 ITEMS: Dict[str, Dict[str, Any]] = {
     "oil": {
         "category": "Energy",
-        "unit": "barrel",
+        "unit": "barrel", 
         "fetcher": fetch_oil_usd,
-        "historical_support": False
+        "historical_support": True,
+        "fred_series": "MCOILWTICO"
+    },
+    "brent_oil": {
+        "category": "Energy",
+        "unit": "barrel",
+        "fetcher": lambda: 75.0,  # Fallback price for Brent oil
+        "historical_support": True,
+        "fred_series": "MCOILBRENTEU"
     },
     "gasoline": {
         "category": "Energy",
@@ -372,7 +380,8 @@ ITEMS: Dict[str, Dict[str, Any]] = {
         "category": "Energy",
         "unit": "MMBtu",
         "fetcher": fetch_natural_gas_usd,
-        "historical_support": False
+        "historical_support": True,
+        "fred_series": "MHHNGSP"
     },
     "gold": {
         "category": "Commodities",

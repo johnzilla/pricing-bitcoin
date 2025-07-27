@@ -28,6 +28,17 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing app...');
     setDefaultDates();
     updateUIForDirection();
+    
+    // Test if CanvasJS is loaded
+    setTimeout(() => {
+        if (typeof CanvasJS === 'undefined') {
+            console.error('CanvasJS failed to load from CDN');
+            showToast('Chart library failed to load. Charts will not be available.', 'error');
+        } else {
+            console.log('CanvasJS loaded successfully');
+        }
+    }, 1000);
+    
     // Ensure items are loaded after a brief delay to let the DOM settle
     setTimeout(() => {
         console.log('Loading items after DOM setup...');
@@ -72,6 +83,14 @@ function setupEventListeners() {
     if (loadHistoricalBtn) {
         loadHistoricalBtn.addEventListener('click', loadHistoricalData);
     }
+    
+    // Auto-reload chart when date inputs change
+    if (fromDate) {
+        fromDate.addEventListener('change', debounceHistoricalLoad);
+    }
+    if (toDate) {
+        toDate.addEventListener('change', debounceHistoricalLoad);
+    }
 }
 
 function debounceConvert() {
@@ -81,6 +100,23 @@ function debounceConvert() {
             performConversion();
         }
     }, 300);
+}
+
+function debounceHistoricalLoad() {
+    clearTimeout(debounceTimer);
+    
+    // Show visual feedback that chart will update
+    const chartContainer = document.getElementById('chartContainer');
+    if (chartContainer) {
+        chartContainer.style.opacity = '0.6';
+    }
+    
+    debounceTimer = setTimeout(() => {
+        if (currentItem && historicalSection.style.display !== 'none') {
+            console.log('Auto-updating chart with new date range...');
+            loadHistoricalData();
+        }
+    }, 800); // Longer delay for API calls
 }
 
 function setUnit(unit) {
@@ -299,6 +335,10 @@ function handleItemChange() {
         // Show/hide historical section
         if (hasHistoricalSupport) {
             historicalSection.style.display = 'block';
+            // Automatically load historical chart
+            setTimeout(() => {
+                loadHistoricalData();
+            }, 500); // Small delay to let the UI update
         } else {
             historicalSection.style.display = 'none';
         }
@@ -382,6 +422,8 @@ function clearResults() {
 }
 
 async function loadHistoricalData() {
+    console.log('loadHistoricalData called for item:', currentItem);
+    
     if (!currentItem) {
         showToast('Please select an item first', 'error');
         return;
@@ -390,9 +432,12 @@ async function loadHistoricalData() {
     const fromDateValue = fromDate.value;
     const toDateValue = toDate.value;
     
+    console.log('Date values:', fromDateValue, toDateValue);
+    
     if (!fromDateValue || !toDateValue) {
-        showToast('Please select both from and to dates', 'error');
-        return;
+        console.log('Missing dates, using defaults');
+        // Use default dates if not set
+        setDefaultDates();
     }
     
     showLoading(true);
@@ -400,11 +445,20 @@ async function loadHistoricalData() {
     try {
         const params = new URLSearchParams({
             item: currentItem,
-            from_date: fromDateValue,
-            to_date: toDateValue
+            from_date: fromDate.value,
+            to_date: toDate.value
         });
         
-        const response = await fetch(`/api/historical?${params}`);
+        console.log('Fetching historical data with params:', params.toString());
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        
+        const response = await fetch(`/api/historical?${params}`, {
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeoutId);
         
         if (!response.ok) {
             const errorData = await response.json();
@@ -412,54 +466,127 @@ async function loadHistoricalData() {
         }
         
         const data = await response.json();
+        console.log('Historical data received:', data);
         renderChart(data);
         
     } catch (error) {
-        showToast(error.message, 'error');
+        console.error('Error loading historical data:', error);
+        
+        let errorMessage = error.message;
+        if (error.name === 'AbortError') {
+            errorMessage = 'Request timed out. Please try again.';
+        } else if (error.message.includes('Failed to fetch')) {
+            errorMessage = 'Network error. Please check your connection.';
+        }
+        
+        showToast(errorMessage, 'error');
     } finally {
         showLoading(false);
     }
 }
 
-function renderChart(data) {
+function renderChart(data, retryCount = 0) {
+    console.log(`Attempting to render chart (attempt ${retryCount + 1})`);
+    
+    // Check if CanvasJS is loaded, with retry logic
+    if (typeof CanvasJS === 'undefined') {
+        if (retryCount < 3) {
+            console.log('CanvasJS not ready, retrying in 1 second...');
+            setTimeout(() => renderChart(data, retryCount + 1), 1000);
+            return;
+        } else {
+            showToast('Chart library failed to load after multiple attempts. Please refresh the page.', 'error');
+            return;
+        }
+    }
+    
+    // Check if chart container exists
+    const container = document.getElementById('chartContainer');
+    if (!container) {
+        if (retryCount < 2) {
+            console.log('Chart container not ready, retrying...');
+            setTimeout(() => renderChart(data, retryCount + 1), 500);
+            return;
+        } else {
+            showToast('Chart container not found', 'error');
+            return;
+        }
+    }
+    
+    console.log('Rendering chart with data:', data);
+    
+    // Validate data
+    if (!data || !data.dates || !data.btc_prices || data.dates.length === 0) {
+        showToast('No chart data available', 'error');
+        return;
+    }
+    
     const dataPoints = data.dates.map((date, index) => ({
         x: new Date(date),
         y: data.btc_prices[index]
     }));
     
-    const chart = new CanvasJS.Chart("chartContainer", {
-        animationEnabled: true,
-        theme: "light2",
-        title: {
-            text: `${currentItem.replace('_', ' ').toUpperCase()} Price in BTC`
-        },
-        axisX: {
-            valueFormatString: "MMM YYYY",
-            crosshair: {
-                enabled: true,
-                snapToDataPoint: true
-            }
-        },
-        axisY: {
-            title: "BTC",
-            includeZero: false,
-            prefix: "₿",
-            crosshair: {
-                enabled: true
-            }
-        },
-        toolTip: {
-            shared: true
-        },
-        data: [{
-            type: "spline",
-            name: "Price in BTC",
-            showInLegend: true,
-            dataPoints: dataPoints
-        }]
-    });
+    console.log('Chart data points:', dataPoints.slice(0, 3)); // Log first 3 points
     
-    chart.render();
+    try {
+        // Clear any existing chart
+        container.innerHTML = '';
+        
+        const chart = new CanvasJS.Chart("chartContainer", {
+            animationEnabled: true,
+            theme: "light2",
+            title: {
+                text: `${currentItem.replace('_', ' ').toUpperCase()} Price in BTC`
+            },
+            axisX: {
+                valueFormatString: "MMM YYYY",
+                crosshair: {
+                    enabled: true,
+                    snapToDataPoint: true
+                }
+            },
+            axisY: {
+                title: "BTC",
+                includeZero: false,
+                prefix: "₿",
+                crosshair: {
+                    enabled: true
+                }
+            },
+            toolTip: {
+                shared: true
+            },
+            data: [{
+                type: "spline",
+                name: "Price in BTC",
+                showInLegend: true,
+                dataPoints: dataPoints
+            }]
+        });
+        
+        chart.render();
+        console.log('✅ Chart rendered successfully');
+        
+        // Restore chart opacity
+        const chartContainer = document.getElementById('chartContainer');
+        if (chartContainer) {
+            chartContainer.style.opacity = '1';
+        }
+        
+        // Only show success toast on first attempt
+        if (retryCount === 0) {
+            showToast('Chart loaded successfully!', 'success');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error rendering chart:', error);
+        if (retryCount < 2) {
+            console.log('Retrying chart render...');
+            setTimeout(() => renderChart(data, retryCount + 1), 1000);
+        } else {
+            showToast('Error rendering chart after multiple attempts: ' + error.message, 'error');
+        }
+    }
 }
 
 function setDefaultDates() {
